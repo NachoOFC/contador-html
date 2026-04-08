@@ -1,242 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contador de Besos 💕</title>
 
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  .wrap {
-    min-height: 560px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 2rem 1rem 2.5rem;
-    font-family: var(--font-sans);
-    background: linear-gradient(160deg, #fde8f0 0%, #ede8fc 50%, #e8f0fd 100%);
-    border-radius: var(--border-radius-lg);
-  }
-  @media (prefers-color-scheme: dark) {
-    .wrap { background: linear-gradient(160deg, #3a1a28 0%, #221a3a 50%, #1a2240 100%); }
-  }
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 
-  .title-block { text-align: center; margin-bottom: 1.5rem; }
-  .title-emoji { font-size: 28px; display: block; margin-bottom: 4px; }
-  .title-text {
-    font-size: 11px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: #b0559a;
-    font-weight: 500;
-  }
-  @media (prefers-color-scheme: dark) { .title-text { color: #e8a0d8; } }
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .counter-card {
-    background: #fff;
-    border: 2px solid #f4b8d8;
-    border-radius: 24px;
-    padding: 1.75rem 3rem;
-    text-align: center;
-    width: 100%;
-    max-width: 340px;
-    margin-bottom: 1.5rem;
-    position: relative;
-    overflow: hidden;
-  }
-  @media (prefers-color-scheme: dark) {
-    .counter-card { background: #2a1220; border-color: #8a3060; }
-  }
-  .counter-card::before {
-    content: '';
-    position: absolute;
-    top: -30px; right: -30px;
-    width: 100px; height: 100px;
-    background: #fde8f4;
-    border-radius: 50%;
-    z-index: 0;
-  }
-  .counter-card::after {
-    content: '';
-    position: absolute;
-    bottom: -20px; left: -20px;
-    width: 70px; height: 70px;
-    background: #eee8fd;
-    border-radius: 50%;
-    z-index: 0;
-  }
-  @media (prefers-color-scheme: dark) {
-    .counter-card::before { background: #3a1a2e; }
-    .counter-card::after { background: #1e1a3a; }
-  }
-  .counter-inner { position: relative; z-index: 1; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(160deg, #fde8f0 0%, #ede8fc 50%, #e8f0fd 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
 
-  .count-number {
-    font-size: 88px;
-    font-weight: 500;
-    line-height: 1;
-    background: linear-gradient(135deg, #e8558a, #9b6cdf);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 4px;
-    transition: transform 0.15s ease;
-    display: block;
-  }
-  .count-number.bump { transform: scale(1.18); }
-  .count-label {
-    font-size: 13px;
-    color: #c070a0;
-    letter-spacing: 0.08em;
-  }
-  @media (prefers-color-scheme: dark) { .count-label { color: #d090c0; } }
+    @media (prefers-color-scheme: dark) {
+      body { background: linear-gradient(160deg, #3a1a28 0%, #221a3a 50%, #1a2240 100%); }
+    }
 
-  .players {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    width: 100%;
-    max-width: 340px;
-    margin-bottom: 1.25rem;
-  }
+    .wrap {
+      width: 100%;
+      max-width: 400px;
+      padding: 2rem 1rem 2.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
 
-  .player-card {
-    border-radius: 20px;
-    padding: 1.25rem 0.85rem;
-    text-align: center;
-    border: 2px solid transparent;
-    position: relative;
-    overflow: hidden;
-  }
-  .player-card.bubu-card {
-    background: linear-gradient(135deg, #ffe0ef, #ffc8e4);
-    border-color: #f4a0c8;
-  }
-  .player-card.dudu-card {
-    background: linear-gradient(135deg, #e8e0ff, #d4c8ff);
-    border-color: #b89cf0;
-  }
-  @media (prefers-color-scheme: dark) {
-    .player-card.bubu-card { background: linear-gradient(135deg, #3a1028, #501838); border-color: #8a3060; }
-    .player-card.dudu-card { background: linear-gradient(135deg, #1e1040, #2a1858); border-color: #6040b0; }
-  }
+    /* Estado de conexión */
+    .status-bar {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      z-index: 100;
+    }
+    .status-bar.connecting {
+      background: #faeeda;
+      color: #854f0b;
+    }
+    .status-bar.connected {
+      background: #eaf3de;
+      color: #3b6d11;
+    }
+    .status-bar.error {
+      background: #fcebeb;
+      color: #a32d2d;
+    }
 
-  .player-name {
-    font-size: 17px;
-    font-weight: 500;
-    margin-bottom: 2px;
-  }
-  .player-name.bubu { color: #c03070; }
-  .player-name.dudu { color: #6030c0; }
-  @media (prefers-color-scheme: dark) {
-    .player-name.bubu { color: #f090c0; }
-    .player-name.dudu { color: #b090f0; }
-  }
-  .player-contrib {
-    font-size: 12px;
-    margin-bottom: 14px;
-    color: #a06080;
-    font-weight: 500;
-  }
-  @media (prefers-color-scheme: dark) { .player-contrib { color: #c090b0; } }
+    /* Título */
+    .title-block { text-align: center; margin-bottom: 1.5rem; }
+    .title-emoji { font-size: 28px; display: block; margin-bottom: 4px; }
+    .title-text {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #b0559a;
+      font-weight: 500;
+    }
+    @media (prefers-color-scheme: dark) { .title-text { color: #e8a0d8; } }
 
-  .btn-row { display: flex; gap: 8px; justify-content: center; }
+    /* Contador principal */
+    .counter-card {
+      background: #fff;
+      border: 2px solid #f4b8d8;
+      border-radius: 24px;
+      padding: 1.75rem 3rem;
+      text-align: center;
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    @media (prefers-color-scheme: dark) {
+      .counter-card { background: #2a1220; border-color: #8a3060; }
+    }
+    .counter-card::before {
+      content: '';
+      position: absolute;
+      top: -30px; right: -30px;
+      width: 100px; height: 100px;
+      background: #fde8f4;
+      border-radius: 50%;
+      z-index: 0;
+    }
+    .counter-card::after {
+      content: '';
+      position: absolute;
+      bottom: -20px; left: -20px;
+      width: 70px; height: 70px;
+      background: #eee8fd;
+      border-radius: 50%;
+      z-index: 0;
+    }
+    @media (prefers-color-scheme: dark) {
+      .counter-card::before { background: #3a1a2e; }
+      .counter-card::after { background: #1e1a3a; }
+    }
+    .counter-inner { position: relative; z-index: 1; }
 
-  .btn {
-    width: 42px; height: 42px;
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: transform 0.1s ease, filter 0.15s;
-    font-size: 20px;
-    font-weight: 500;
-    line-height: 1;
-  }
-  .btn:active { transform: scale(0.88); }
-  .btn:hover { filter: brightness(1.08); }
+    .count-number {
+      font-size: 88px;
+      font-weight: 500;
+      line-height: 1;
+      background: linear-gradient(135deg, #e8558a, #9b6cdf);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 4px;
+      transition: transform 0.15s ease;
+      display: block;
+    }
+    .count-number.bump { transform: scale(1.18); }
+    .count-label {
+      font-size: 13px;
+      color: #c070a0;
+      letter-spacing: 0.08em;
+    }
+    @media (prefers-color-scheme: dark) { .count-label { color: #d090c0; } }
 
-  .btn-kiss-bubu {
-    background: linear-gradient(135deg, #f06090, #e03070);
-    color: #fff;
-    box-shadow: 0 3px 10px #f0609040;
-  }
-  .btn-minus-bubu {
-    background: #ffd8ec;
-    color: #c03070;
-  }
-  @media (prefers-color-scheme: dark) {
-    .btn-minus-bubu { background: #501030; color: #f080c0; }
-  }
+    /* Cards de jugadores */
+    .players {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      width: 100%;
+      max-width: 340px;
+      margin-bottom: 1.25rem;
+    }
 
-  .btn-kiss-dudu {
-    background: linear-gradient(135deg, #9060e0, #6030c0);
-    color: #fff;
-    box-shadow: 0 3px 10px #9060e040;
-  }
-  .btn-minus-dudu {
-    background: #ddd0ff;
-    color: #6030c0;
-  }
-  @media (prefers-color-scheme: dark) {
-    .btn-minus-dudu { background: #28104a; color: #c090f0; }
-  }
+    .player-card {
+      border-radius: 20px;
+      padding: 1.25rem 0.85rem;
+      text-align: center;
+      border: 2px solid transparent;
+      position: relative;
+      overflow: hidden;
+    }
+    .player-card.bubu-card {
+      background: linear-gradient(135deg, #ffe0ef, #ffc8e4);
+      border-color: #f4a0c8;
+    }
+    .player-card.dudu-card {
+      background: linear-gradient(135deg, #e8e0ff, #d4c8ff);
+      border-color: #b89cf0;
+    }
+    @media (prefers-color-scheme: dark) {
+      .player-card.bubu-card { background: linear-gradient(135deg, #3a1028, #501838); border-color: #8a3060; }
+      .player-card.dudu-card { background: linear-gradient(135deg, #1e1040, #2a1858); border-color: #6040b0; }
+    }
 
-  .log {
-    width: 100%;
-    max-width: 340px;
-    background: #fff8fc;
-    border: 1.5px solid #f0c8e0;
-    border-radius: 16px;
-    padding: 0.9rem 1rem;
-    max-height: 130px;
-    overflow-y: auto;
-  }
-  @media (prefers-color-scheme: dark) {
-    .log { background: #1e0e18; border-color: #6a2848; }
-  }
-  .log-title {
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #c070a0;
-    margin-bottom: 6px;
-    font-weight: 500;
-  }
-  .log-item {
-    font-size: 12px;
-    padding: 3px 0;
-    border-bottom: 0.5px solid #f4d0e8;
-    display: flex; align-items: center; gap: 6px;
-  }
-  @media (prefers-color-scheme: dark) {
-    .log-item { border-color: #4a1e38; }
-  }
-  .log-item:last-child { border-bottom: none; }
-  .log-item.log-bubu { color: #c03070; }
-  .log-item.log-dudu { color: #6030c0; }
-  @media (prefers-color-scheme: dark) {
-    .log-item.log-bubu { color: #f090c0; }
-    .log-item.log-dudu { color: #b090f0; }
-  }
-  .log-empty { font-size: 12px; color: #c090b0; font-style: italic; text-align: center; }
+    .player-name {
+      font-size: 17px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+    .player-name.bubu { color: #c03070; }
+    .player-name.dudu { color: #6030c0; }
+    @media (prefers-color-scheme: dark) {
+      .player-name.bubu { color: #f090c0; }
+      .player-name.dudu { color: #b090f0; }
+    }
 
-  .floating-hearts {
-    position: absolute;
-    pointer-events: none;
-    top: 0; left: 0; width: 100%; height: 100%;
-    overflow: hidden;
-    border-radius: var(--border-radius-lg);
-  }
-  .fh {
-    position: absolute;
-    font-size: 14px;
-    opacity: 0;
-    animation: floatup 1.2s ease-out forwards;
-  }
-  @keyframes floatup {
-    0%   { opacity: 1; transform: translateY(0) scale(1); }
-    100% { opacity: 0; transform: translateY(-80px) scale(1.5); }
-  }
-</style>
+    .player-contrib {
+      font-size: 12px;
+      margin-bottom: 14px;
+      color: #a06080;
+      font-weight: 500;
+    }
+    @media (prefers-color-scheme: dark) { .player-contrib { color: #c090b0; } }
 
-<div class="wrap" id="wrap" style="position:relative;">
-  <div class="floating-hearts" id="fhearts"></div>
+    .btn-row { display: flex; gap: 8px; justify-content: center; }
 
+    .btn {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.1s ease, filter 0.15s, opacity 0.2s;
+      font-size: 20px;
+      font-weight: 500;
+      line-height: 1;
+    }
+    .btn:active { transform: scale(0.88); }
+    .btn:hover { filter: brightness(1.08); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-kiss-bubu {
+      background: linear-gradient(135deg, #f06090, #e03070);
+      color: #fff;
+      box-shadow: 0 3px 10px #f0609040;
+    }
+    .btn-minus-bubu { background: #ffd8ec; color: #c03070; }
+    @media (prefers-color-scheme: dark) {
+      .btn-minus-bubu { background: #501030; color: #f080c0; }
+    }
+
+    .btn-kiss-dudu {
+      background: linear-gradient(135deg, #9060e0, #6030c0);
+      color: #fff;
+      box-shadow: 0 3px 10px #9060e040;
+    }
+    .btn-minus-dudu { background: #ddd0ff; color: #6030c0; }
+    @media (prefers-color-scheme: dark) {
+      .btn-minus-dudu { background: #28104a; color: #c090f0; }
+    }
+
+    /* Historial */
+    .log {
+      width: 100%;
+      max-width: 340px;
+      background: #fff8fc;
+      border: 1.5px solid #f0c8e0;
+      border-radius: 16px;
+      padding: 0.9rem 1rem;
+      max-height: 130px;
+      overflow-y: auto;
+    }
+    @media (prefers-color-scheme: dark) {
+      .log { background: #1e0e18; border-color: #6a2848; }
+    }
+    .log-title {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #c070a0;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .log-item {
+      font-size: 12px;
+      padding: 3px 0;
+      border-bottom: 0.5px solid #f4d0e8;
+      display: flex; align-items: center; gap: 6px;
+    }
+    @media (prefers-color-scheme: dark) {
+      .log-item { border-color: #4a1e38; }
+    }
+    .log-item:last-child { border-bottom: none; }
+    .log-item.log-bubu { color: #c03070; }
+    .log-item.log-dudu { color: #6030c0; }
+    @media (prefers-color-scheme: dark) {
+      .log-item.log-bubu { color: #f090c0; }
+      .log-item.log-dudu { color: #b090f0; }
+    }
+    .log-empty { font-size: 12px; color: #c090b0; font-style: italic; text-align: center; }
+
+    /* Botón reset */
+    .reset-btn {
+      margin-top: 1rem;
+      font-size: 11px;
+      color: #c090b0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .reset-btn:hover { color: #e03070; }
+
+    /* Corazones flotantes */
+    .floating-hearts {
+      position: fixed;
+      pointer-events: none;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+    }
+    .fh {
+      position: absolute;
+      font-size: 14px;
+      opacity: 0;
+      animation: floatup 1.2s ease-out forwards;
+    }
+    @keyframes floatup {
+      0%   { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-80px) scale(1.5); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="floating-hearts" id="fhearts"></div>
+
+<div id="status-bar" class="status-bar connecting">⏳ Conectando...</div>
+
+<div class="wrap">
   <div class="title-block">
     <span class="title-emoji">💕</span>
     <span class="title-text">Contador de besos</span>
@@ -254,9 +319,11 @@
       <div class="player-name bubu">BUBU</div>
       <div class="player-contrib" id="bubu-contrib">0 besos</div>
       <div class="btn-row">
-        <button class="btn btn-minus-bubu" onclick="change('bubu', -1)" title="quitar">−</button>
-        <button class="btn btn-kiss-bubu" onclick="change('bubu', 1)" title="dar beso">
-          <svg width="20" height="18" viewBox="0 0 20 18" fill="none"><path d="M10 17C10 17 1 10.5 1 5C1 2.8 2.9 1 5.5 1C7.5 1 9 2.2 10 3.6C11 2.2 12.5 1 14.5 1C17.1 1 19 2.8 19 5C19 10.5 10 17 10 17Z" fill="white"/></svg>
+        <button class="btn btn-minus-bubu" id="minus-bubu" onclick="change('bubu', -1)" title="quitar">−</button>
+        <button class="btn btn-kiss-bubu" id="plus-bubu" onclick="change('bubu', 1)" title="dar beso">
+          <svg width="20" height="18" viewBox="0 0 20 18" fill="none">
+            <path d="M10 17C10 17 1 10.5 1 5C1 2.8 2.9 1 5.5 1C7.5 1 9 2.2 10 3.6C11 2.2 12.5 1 14.5 1C17.1 1 19 2.8 19 5C19 10.5 10 17 10 17Z" fill="white"/>
+          </svg>
         </button>
       </div>
     </div>
@@ -265,9 +332,11 @@
       <div class="player-name dudu">DUDU</div>
       <div class="player-contrib" id="dudu-contrib">0 besos</div>
       <div class="btn-row">
-        <button class="btn btn-minus-dudu" onclick="change('dudu', -1)" title="quitar">−</button>
-        <button class="btn btn-kiss-dudu" onclick="change('dudu', 1)" title="dar beso">
-          <svg width="20" height="18" viewBox="0 0 20 18" fill="none"><path d="M10 17C10 17 1 10.5 1 5C1 2.8 2.9 1 5.5 1C7.5 1 9 2.2 10 3.6C11 2.2 12.5 1 14.5 1C17.1 1 19 2.8 19 5C19 10.5 10 17 10 17Z" fill="white"/></svg>
+        <button class="btn btn-minus-dudu" id="minus-dudu" onclick="change('dudu', -1)" title="quitar">−</button>
+        <button class="btn btn-kiss-dudu" id="plus-dudu" onclick="change('dudu', 1)" title="dar beso">
+          <svg width="20" height="18" viewBox="0 0 20 18" fill="none">
+            <path d="M10 17C10 17 1 10.5 1 5C1 2.8 2.9 1 5.5 1C7.5 1 9 2.2 10 3.6C11 2.2 12.5 1 14.5 1C17.1 1 19 2.8 19 5C19 10.5 10 17 10 17Z" fill="white"/>
+          </svg>
         </button>
       </div>
     </div>
@@ -277,60 +346,135 @@
     <div class="log-title">Historial de besitos</div>
     <div id="log-list"><p class="log-empty">Aún no hay besos... ¡dense uno!</p></div>
   </div>
+
+  <button class="reset-btn" onclick="resetAll()">reiniciar contador</button>
 </div>
 
 <script>
-  const state = { bubu: 0, dudu: 0, log: [] };
-  const emojis = ['💋','💕','💖','💗','😘','✨','🌸','💝'];
+  // ============================================================
+  // 🔥 REEMPLAZA ESTO CON TU CONFIGURACIÓN DE FIREBASE
+  // La encuentras en: Project Settings → Your apps → SDK setup
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyDnuz1g87uSDA9TvMEICDYJaVCbZ65Rj48",
+    authDomain: "contador-besos.firebaseapp.com",
+    databaseURL: "https://contador-besos-default-rtdb.firebaseio.com",
+    projectId: "contador-besos",
+    storageBucket: "contador-besos.firebasestorage.app",
+    messagingSenderId: "39130427986",
+    appId: "1:39130427986:web:b60b13963439bb16c6658b"
+  };
+  // ============================================================
 
-  function spawnHeart(who) {
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const ref = db.ref('contador');
+
+  const emojis = ['💋','💕','💖','💗','😘','✨','🌸','💝'];
+  let connected = false;
+
+  // --- Estado de conexión ---
+  db.ref('.info/connected').on('value', snap => {
+    connected = snap.val();
+    const bar = document.getElementById('status-bar');
+    if (connected) {
+      bar.textContent = '✓ Conectado en tiempo real';
+      bar.className = 'status-bar connected';
+      setTimeout(() => bar.style.opacity = '0', 2000);
+    } else {
+      bar.style.opacity = '1';
+      bar.textContent = '⚠ Sin conexión — reconectando...';
+      bar.className = 'status-bar error';
+    }
+    setButtonsDisabled(!connected);
+  });
+
+  function setButtonsDisabled(disabled) {
+    ['plus-bubu','minus-bubu','plus-dudu','minus-dudu'].forEach(id => {
+      document.getElementById(id).disabled = disabled;
+    });
+  }
+
+  // --- Escuchar cambios en Firebase (tiempo real) ---
+  ref.on('value', snap => {
+    const data = snap.val() || { bubu: 0, dudu: 0, log: [] };
+    renderUI(data);
+  });
+
+  // --- Dar / quitar beso (transacción atómica) ---
+  function change(who, delta) {
+    ref.transaction(current => {
+      if (!current) current = { bubu: 0, dudu: 0, log: [] };
+
+      const newVal = (current[who] || 0) + delta;
+      if (newVal < 0) return; // abortar transacción
+
+      current[who] = newVal;
+
+      const emoji = who === 'bubu' ? '💋' : '💜';
+      const name = who === 'bubu' ? 'BUBU' : 'DUDU';
+      const action = delta > 0
+        ? `${emoji} ${name} dio un beso`
+        : `${who === 'bubu' ? '🌸' : '⭐'} ${name} quitó un beso`;
+
+      if (!current.log) current.log = [];
+      current.log.unshift({ text: action, who, ts: Date.now() });
+      if (current.log.length > 20) current.log = current.log.slice(0, 20);
+
+      return current;
+    });
+
+    if (delta > 0) { spawnHeart(); spawnHeart(); }
+  }
+
+  // --- Reiniciar todo ---
+  function resetAll() {
+    if (!confirm('¿Reiniciar el contador a cero?')) return;
+    ref.set({ bubu: 0, dudu: 0, log: [] });
+  }
+
+  // --- Renderizar la UI ---
+  function renderUI(data) {
+    const bubu = data.bubu || 0;
+    const dudu = data.dudu || 0;
+    const log  = data.log  || [];
+    const total = bubu + dudu;
+
+    const el = document.getElementById('count');
+    const prev = parseInt(el.textContent) || 0;
+    el.textContent = total;
+    if (total !== prev) {
+      el.classList.remove('bump');
+      void el.offsetWidth;
+      el.classList.add('bump');
+      setTimeout(() => el.classList.remove('bump'), 160);
+    }
+
+    document.getElementById('bubu-contrib').textContent = bubu + (bubu === 1 ? ' beso' : ' besos');
+    document.getElementById('dudu-contrib').textContent = dudu + (dudu === 1 ? ' beso' : ' besos');
+
+    const list = document.getElementById('log-list');
+    if (log.length === 0) {
+      list.innerHTML = '<p class="log-empty">Aún no hay besos... ¡dense uno!</p>';
+    } else {
+      list.innerHTML = log.map(e =>
+        `<div class="log-item log-${e.who}">${e.text}</div>`
+      ).join('');
+    }
+  }
+
+  // --- Corazones flotantes ---
+  function spawnHeart() {
     const container = document.getElementById('fhearts');
     const el = document.createElement('span');
     el.className = 'fh';
     el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
-    el.style.left = (20 + Math.random() * 60) + '%';
+    el.style.left   = (20 + Math.random() * 60) + '%';
     el.style.bottom = '60px';
     el.style.fontSize = (12 + Math.random() * 10) + 'px';
     container.appendChild(el);
     setTimeout(() => el.remove(), 1300);
   }
-
-  function change(who, delta) {
-    const newVal = state[who] + delta;
-    if (newVal < 0) return;
-    state[who] = newVal;
-
-    const emoji = who === 'bubu' ? '💋' : '💜';
-    const name = who === 'bubu' ? 'BUBU' : 'DUDU';
-    const action = delta > 0
-      ? `${emoji} ${name} dio un beso`
-      : `${who === 'bubu' ? '🌸' : '⭐'} ${name} quitó un beso`;
-
-    if (delta > 0) { spawnHeart(who); spawnHeart(who); }
-    state.log.unshift({ text: action, who });
-    if (state.log.length > 20) state.log.pop();
-    render();
-  }
-
-  function render() {
-    const total = state.bubu + state.dudu;
-    const el = document.getElementById('count');
-    el.textContent = total;
-    el.classList.remove('bump');
-    void el.offsetWidth;
-    el.classList.add('bump');
-    setTimeout(() => el.classList.remove('bump'), 160);
-
-    document.getElementById('bubu-contrib').textContent = state.bubu + (state.bubu === 1 ? ' beso' : ' besos');
-    document.getElementById('dudu-contrib').textContent = state.dudu + (state.dudu === 1 ? ' beso' : ' besos');
-
-    const list = document.getElementById('log-list');
-    if (state.log.length === 0) {
-      list.innerHTML = '<p class="log-empty">Aún no hay besos... ¡dense uno!</p>';
-    } else {
-      list.innerHTML = state.log.map(e =>
-        `<div class="log-item log-${e.who}">${e.text}</div>`
-      ).join('');
-    }
-  }
 </script>
+</body>
+</html>
